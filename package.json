@@ -1,0 +1,19 @@
+{
+  "name": "agentshield",
+  "version": "1.0.0",
+  "description": "Developer tool for detecting and testing loopholes in agentic AI applications",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start"
+  },
+  "keywords": ["ai", "security", "testing", "agentic", "vulnerability"],
+  "author": "AgentShield Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
