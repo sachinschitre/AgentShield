@@ -1,0 +1,19 @@
+name: Cloudflare Agent Security Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: npm install
+      - name: Run agent unit and scenario tests
+        run: npx vitest run
+      - name: Simulate agent with wrangler
+        run: npx wrangler dev --test
