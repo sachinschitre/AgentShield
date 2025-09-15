@@ -1,3 +1,15 @@
+## Cloudflare AI Agent Security Testing
+
+Our project follows Cloudflare’s industry-leading AI agent security practices:
+
+- Strict input/output validation and sanitization.
+- Authentication with least-privilege policy enforcement using Cloudflare Zero Trust integrations.
+- All agent requests are routed through Cloudflare AI Gateway for monitoring and access control.
+- Sensitive data is protected using Cloudflare DLP (Data Loss Prevention) and Browser Isolation (where required).
+- CI pipeline runs comprehensive agent security/vulnerability tests on every commit (see: `.github/workflows/cloudflare-agent-tests.yml`).
+
+See [`docs/cloudflare-agent-testing.md`](./docs/cloudflare-agent-testing.md) for setup, usage, and hardening steps.
+
 # Contributing to AgentShield
 
 Thank you for your interest in contributing to AgentShield! This document provides guidelines and information for contributors.
