@@ -10,10 +10,18 @@ const authRoutes = require('./routes/auth');
 const testRoutes = require('./routes/tests');
 const resultRoutes = require('./routes/results');
 const configRoutes = require('./routes/config');
+const cloudflareRoutes = require('./routes/cloudflare');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
+const {
+  cloudflareAIGatewayAuth,
+  aiAgentInputValidation,
+  dataLossPrevention,
+  zeroTrustSecurity,
+  encryptionMiddleware
+} = require('./middleware/cloudflareSecurity');
 
 // Import test execution engine
 const TestExecutor = require('./services/TestExecutor');
@@ -45,6 +53,12 @@ app.use(cors({
   credentials: true
 }));
 
+// Cloudflare AI Agent Security Middleware
+app.use(encryptionMiddleware);
+app.use(zeroTrustSecurity);
+app.use(aiAgentInputValidation);
+app.use(dataLossPrevention);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -61,9 +75,10 @@ const testExecutor = new TestExecutor();
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/tests', authMiddleware, testRoutes);
-app.use('/api/results', authMiddleware, resultRoutes);
-app.use('/api/config', authMiddleware, configRoutes);
+app.use('/api/tests', cloudflareAIGatewayAuth, authMiddleware, testRoutes);
+app.use('/api/results', cloudflareAIGatewayAuth, authMiddleware, resultRoutes);
+app.use('/api/config', cloudflareAIGatewayAuth, authMiddleware, configRoutes);
+app.use('/api/cloudflare', cloudflareAIGatewayAuth, authMiddleware, cloudflareRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
