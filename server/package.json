@@ -6,9 +6,16 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:cloudflare": "node -e \"require('./services/CloudflareAgentTester').test()\"",
     "test:wrangler": "wrangler dev --test",
-    "test:security": "npm run test:cloudflare && npm run test:wrangler"
+    "test:security": "npm run test:cloudflare && npm run test:wrangler",
+    "lint": "eslint . --ext .js,.ts",
+    "lint:fix": "eslint . --ext .js,.ts --fix",
+    "format": "prettier --write \"**/*.{js,ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,ts,json,md}\""
   },
   "dependencies": {
     "express": "^4.18.2",

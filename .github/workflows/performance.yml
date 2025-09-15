@@ -1,0 +1,36 @@
+name: Performance Tests
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Daily at 3 AM
+  workflow_dispatch:
+
+jobs:
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+          cd ../client && npm ci
+      
+      - name: Run Lighthouse CI
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun --upload.target=temporary-public-storage
+      
+      - name: Run Load Tests
+        run: |
+          npm install -g artillery
+          artillery run load-test.yml --output load-test-results.json

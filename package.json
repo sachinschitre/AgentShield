@@ -8,7 +8,16 @@
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "start": "cd server && npm start"
+    "start": "cd server && npm start",
+    "test": "cd server && npm test && cd ../client && npm test",
+    "test:integration": "node tests/integration-tests.js",
+    "test:post-deploy": "node tests/post-deployment-tests.js",
+    "lint": "cd server && npm run lint && cd ../client && npm run lint",
+    "format": "cd server && npm run format && cd ../client && npm run format",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "keywords": ["ai", "security", "testing", "agentic", "vulnerability"],
   "author": "AgentShield Team",

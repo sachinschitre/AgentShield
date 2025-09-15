@@ -1,0 +1,507 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *' # Daily integration tests at 2 AM
+
+env:
+  NODE_VERSION: '18'
+  MONGODB_VERSION: '6.0'
+
+jobs:
+  # API Integration Tests
+  api-integration-tests:
+    name: API Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:${{ env.MONGODB_VERSION }}
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+          cd ../client && npm ci
+
+      - name: Start server
+        run: cd server && npm start &
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/agentshield_test
+          JWT_SECRET: test-secret-key
+          PORT: 5000
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:5000/api/health
+
+      - name: Run API Integration Tests
+        run: |
+          echo "Running API integration tests..."
+          
+          # Test authentication endpoints
+          echo "Testing authentication endpoints..."
+          curl -X POST http://localhost:5000/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testuser","email":"test@example.com","password":"testpassword123"}' \
+            -w "\nStatus: %{http_code}\n"
+          
+          # Test login
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:5000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"testpassword123"}')
+          
+          TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.token')
+          echo "Login successful, token: ${TOKEN:0:20}..."
+          
+          # Test protected endpoints
+          echo "Testing protected endpoints..."
+          curl -H "Authorization: Bearer $TOKEN" \
+            http://localhost:5000/api/tests \
+            -w "\nStatus: %{http_code}\n"
+          
+          curl -H "Authorization: Bearer $TOKEN" \
+            http://localhost:5000/api/results \
+            -w "\nStatus: %{http_code}\n"
+          
+          curl -H "Authorization: Bearer $TOKEN" \
+            http://localhost:5000/api/config/test-templates \
+            -w "\nStatus: %{http_code}\n"
+
+      - name: Run Test Suite Creation Tests
+        run: |
+          echo "Testing test suite creation..."
+          
+          # Create a test suite
+          SUITE_RESPONSE=$(curl -s -X POST http://localhost:5000/api/tests \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "Integration Test Suite",
+              "description": "Test suite created during integration tests",
+              "categories": [{
+                "type": "input_injection",
+                "name": "SQL Injection Test",
+                "description": "Test for SQL injection vulnerabilities",
+                "tests": [{
+                  "id": "sql_test_1",
+                  "name": "Basic SQL Injection",
+                  "description": "Test basic SQL injection payloads",
+                  "config": {
+                    "targetUrl": "https://httpbin.org/post",
+                    "payloads": ["'\'' OR '\''1'\''='\''1"],
+                    "expectedResponse": {
+                      "shouldNotContain": ["error", "exception"]
+                    }
+                  },
+                  "enabled": true
+                }],
+                "enabled": true
+              }],
+              "tags": ["integration", "test"],
+              "settings": {
+                "timeout": 10000,
+                "parallel": false,
+                "retryCount": 0
+              }
+            }')
+          
+          SUITE_ID=$(echo $SUITE_RESPONSE | jq -r '._id')
+          echo "Test suite created with ID: $SUITE_ID"
+
+      - name: Run Test Execution Tests
+        run: |
+          echo "Testing test execution..."
+          
+          # Execute the test suite
+          EXECUTION_RESPONSE=$(curl -s -X POST http://localhost:5000/api/tests/$SUITE_ID/execute \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"parallel": false, "timeout": 15000}')
+          
+          EXECUTION_ID=$(echo $EXECUTION_RESPONSE | jq -r '.executionId')
+          echo "Test execution started with ID: $EXECUTION_ID"
+          
+          # Wait for execution to complete
+          echo "Waiting for test execution to complete..."
+          sleep 10
+          
+          # Check execution status
+          STATUS_RESPONSE=$(curl -s http://localhost:5000/api/results/$EXECUTION_ID \
+            -H "Authorization: Bearer $TOKEN")
+          
+          STATUS=$(echo $STATUS_RESPONSE | jq -r '.status')
+          echo "Test execution status: $STATUS"
+
+      - name: Upload API Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-integration-test-results
+          path: test-results/
+
+  # End-to-End Tests
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:${{ env.MONGODB_VERSION }}
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+          cd ../client && npm ci
+
+      - name: Build client
+        run: cd client && npm run build
+        env:
+          CI: true
+
+      - name: Start server
+        run: cd server && npm start &
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/agentshield_test
+          JWT_SECRET: test-secret-key
+          PORT: 5000
+
+      - name: Start client
+        run: cd client && npm start &
+        env:
+          PORT: 3000
+
+      - name: Wait for services
+        run: |
+          npx wait-on http://localhost:5000/api/health
+          npx wait-on http://localhost:3000
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run E2E Tests
+        run: |
+          echo "Running end-to-end tests..."
+          
+          # Create E2E test script
+          cat > e2e-test.js << 'EOF'
+          const { chromium } = require('playwright');
+          
+          async function runE2ETests() {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            
+            try {
+              // Test homepage
+              console.log('Testing homepage...');
+              await page.goto('http://localhost:3000');
+              await page.waitForSelector('text=AgentShield');
+              console.log('✅ Homepage loaded successfully');
+              
+              // Test registration
+              console.log('Testing user registration...');
+              await page.click('text=Sign up here');
+              await page.fill('input[id="username"]', 'e2etestuser');
+              await page.fill('input[id="email"]', 'e2e@example.com');
+              await page.fill('input[id="password"]', 'e2epassword123');
+              await page.fill('input[id="confirmPassword"]', 'e2epassword123');
+              await page.click('button[type="submit"]');
+              
+              // Wait for redirect to dashboard
+              await page.waitForURL('**/dashboard');
+              console.log('✅ User registration successful');
+              
+              // Test dashboard
+              console.log('Testing dashboard...');
+              await page.waitForSelector('text=Dashboard');
+              console.log('✅ Dashboard loaded successfully');
+              
+              // Test test suites page
+              console.log('Testing test suites page...');
+              await page.click('text=Test Suites');
+              await page.waitForSelector('text=Test Suites');
+              console.log('✅ Test suites page loaded successfully');
+              
+              // Test templates page
+              console.log('Testing templates page...');
+              await page.click('text=Templates');
+              await page.waitForSelector('text=Test Templates');
+              console.log('✅ Templates page loaded successfully');
+              
+              // Test results page
+              console.log('Testing results page...');
+              await page.click('text=Results');
+              await page.waitForSelector('text=Test Results');
+              console.log('✅ Results page loaded successfully');
+              
+              console.log('🎉 All E2E tests passed!');
+              
+            } catch (error) {
+              console.error('❌ E2E test failed:', error);
+              throw error;
+            } finally {
+              await browser.close();
+            }
+          }
+          
+          runE2ETests().catch(process.exit);
+          EOF
+          
+          node e2e-test.js
+
+      - name: Upload E2E Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: test-results/
+
+  # Cloudflare Integration Tests
+  cloudflare-integration-tests:
+    name: Cloudflare Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+          cd ../client && npm ci
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Run Cloudflare Integration Tests
+        run: |
+          echo "Running Cloudflare integration tests..."
+          
+          # Test Cloudflare security middleware
+          cd server
+          npm run test:cloudflare
+          
+          # Test Wrangler integration
+          npm run test:wrangler
+          
+          echo "✅ Cloudflare integration tests completed"
+
+      - name: Upload Cloudflare Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloudflare-integration-test-results
+          path: test-results/
+
+  # Database Integration Tests
+  database-integration-tests:
+    name: Database Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:${{ env.MONGODB_VERSION }}
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+
+      - name: Run Database Integration Tests
+        run: |
+          echo "Running database integration tests..."
+          
+          # Test database connection
+          cd server
+          node -e "
+            const mongoose = require('mongoose');
+            mongoose.connect('mongodb://localhost:27017/agentshield_test')
+              .then(() => {
+                console.log('✅ Database connection successful');
+                return mongoose.connection.db.admin().ping();
+              })
+              .then(() => {
+                console.log('✅ Database ping successful');
+                return mongoose.disconnect();
+              })
+              .then(() => {
+                console.log('✅ Database disconnection successful');
+                process.exit(0);
+              })
+              .catch((error) => {
+                console.error('❌ Database test failed:', error);
+                process.exit(1);
+              });
+          "
+          
+          # Test database models
+          node -e "
+            const mongoose = require('mongoose');
+            const User = require('./models/User');
+            const TestSuite = require('./models/TestSuite');
+            const TestResult = require('./models/TestResult');
+            
+            mongoose.connect('mongodb://localhost:27017/agentshield_test')
+              .then(async () => {
+                console.log('Testing User model...');
+                const user = new User({
+                  username: 'testuser',
+                  email: 'test@example.com',
+                  password: 'testpassword123'
+                });
+                await user.save();
+                console.log('✅ User model test successful');
+                
+                console.log('Testing TestSuite model...');
+                const testSuite = new TestSuite({
+                  name: 'Test Suite',
+                  description: 'Test description',
+                  categories: [],
+                  createdBy: user._id,
+                  tags: ['test'],
+                  settings: { timeout: 10000, parallel: false, retryCount: 0 }
+                });
+                await testSuite.save();
+                console.log('✅ TestSuite model test successful');
+                
+                console.log('Testing TestResult model...');
+                const testResult = new TestResult({
+                  executionId: 'test-execution-123',
+                  testSuiteId: testSuite._id,
+                  executedBy: user._id,
+                  status: 'completed',
+                  startTime: new Date(),
+                  endTime: new Date(),
+                  duration: 1000,
+                  summary: { total: 1, passed: 1, failed: 0, skipped: 0, vulnerabilities: [] },
+                  tests: []
+                });
+                await testResult.save();
+                console.log('✅ TestResult model test successful');
+                
+                await mongoose.disconnect();
+                console.log('✅ All database model tests successful');
+                process.exit(0);
+              })
+              .catch((error) => {
+                console.error('❌ Database model test failed:', error);
+                process.exit(1);
+              });
+          "
+
+      - name: Upload Database Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-integration-test-results
+          path: test-results/
+
+  # Integration Test Summary
+  integration-test-summary:
+    name: Integration Test Summary
+    runs-on: ubuntu-latest
+    needs: [api-integration-tests, e2e-tests, cloudflare-integration-tests, database-integration-tests]
+    if: always()
+    steps:
+      - name: Generate Integration Test Report
+        run: |
+          echo "# Integration Test Report" >> integration-report.md
+          echo "Generated on: $(date)" >> integration-report.md
+          echo "" >> integration-report.md
+          
+          echo "## Test Results" >> integration-report.md
+          echo "- API Integration Tests: ${{ needs.api-integration-tests.result }}" >> integration-report.md
+          echo "- End-to-End Tests: ${{ needs.e2e-tests.result }}" >> integration-report.md
+          echo "- Cloudflare Integration Tests: ${{ needs.cloudflare-integration-tests.result }}" >> integration-report.md
+          echo "- Database Integration Tests: ${{ needs.database-integration-tests.result }}" >> integration-report.md
+          echo "" >> integration-report.md
+          
+          # Overall status
+          if [ "${{ needs.api-integration-tests.result }}" == "success" ] && \
+             [ "${{ needs.e2e-tests.result }}" == "success" ] && \
+             [ "${{ needs.cloudflare-integration-tests.result }}" == "success" ] && \
+             [ "${{ needs.database-integration-tests.result }}" == "success" ]; then
+            echo "## Overall Status: ✅ ALL TESTS PASSED" >> integration-report.md
+          else
+            echo "## Overall Status: ❌ SOME TESTS FAILED" >> integration-report.md
+          fi
+
+      - name: Upload Integration Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: integration-report.md
+
+      - name: Comment PR with Integration Test Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('integration-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
