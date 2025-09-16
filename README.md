@@ -289,6 +289,40 @@ npm run test:agentic
 # Runs comprehensive agentic workflow tests
 ```
 
+## 🔌 Chrome Extension
+
+AgentShield includes a Chrome extension for real-time security testing directly in your browser.
+
+### Building the Extension
+
+1. **Build the extension:**
+```bash
+npm run extension:build
+# Creates dist/ folder with extension files
+```
+
+2. **Load in Chrome:**
+- Open Chrome and go to `chrome://extensions/`
+- Enable "Developer mode"
+- Click "Load unpacked" and select `client/extension/dist`
+
+3. **Use the extension:**
+- Visit ChatGPT, Claude, or Bard
+- Click the AgentShield extension icon
+- Click "Scan Current Tab" to test the agent
+- View results with risk scores and remediation suggestions
+
+### Extension Features
+
+- **Real-time Scanning**: Test AI agents directly from supported websites
+- **Multiple Test Types**: Prompt injection, data exfiltration, role confusion, jailbreaking
+- **Risk Assessment**: CVSS-style scoring with severity buckets
+- **Offline & Online Modes**: Works with local tests or remote API
+- **Scan History**: Track and export results over time
+- **Supported Platforms**: ChatGPT, Claude, Bard, and other LLM interfaces
+
+See [Extension Documentation](docs/extension.md) for detailed usage instructions.
+
 ## 🚀 Deployment
 
 ### Production Deployment

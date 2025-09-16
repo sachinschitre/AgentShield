@@ -16,6 +16,8 @@
     "test:benchmarks": "node examples/benchmarks/run_benchmarks.js",
     "example:vulnerable-agent": "node examples/benchmarks/mock-vulnerable-agent/server.js",
     "example:secure-agent": "node examples/benchmarks/mock-secure-agent/server.js",
+    "extension:build": "cd client/extension && node build.js",
+    "extension:dev": "cd client/extension/popup && npm run dev",
     "lint": "cd server && npm run lint && cd ../client && npm run lint",
     "format": "cd server && npm run format && cd ../client && npm run format",
     "docker:build": "docker-compose build",
