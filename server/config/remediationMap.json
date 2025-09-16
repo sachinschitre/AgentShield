@@ -1,0 +1,206 @@
+{
+  "prompt-injection": {
+    "title": "Implement Prompt Injection Protection",
+    "description": "Add input validation and sanitization to prevent prompt injection attacks. Use regex patterns to detect and block malicious instructions.",
+    "category": "Input Validation",
+    "estimatedEffort": "4-6 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Input Sanitization Function",
+        "code": "function sanitizeInput(input) {\n  const injectionPatterns = [\n    /SYSTEM\\s*:/gi,\n    /ignore\\s+previous\\s+instructions/gi,\n    /override\\s+instructions/gi,\n    /new\\s+instructions/gi\n  ];\n  \n  for (const pattern of injectionPatterns) {\n    if (pattern.test(input)) {\n      throw new Error('Potential prompt injection detected');\n    }\n  }\n  \n  return input.trim();\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/attacks/Prompt_Injection",
+      "https://github.com/OWASP/www-community/blob/master/content/attacks/Prompt_Injection.md"
+    ]
+  },
+  "system-prompt-extraction": {
+    "title": "Protect System Prompt Confidentiality",
+    "description": "Ensure system prompts are never included in user-visible responses. Use server-side prompt management and response filtering.",
+    "category": "Information Disclosure",
+    "estimatedEffort": "2-4 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Response Filtering",
+        "code": "function filterSystemPrompt(response) {\n  const systemPatterns = [\n    /system\\s+prompt/gi,\n    /hidden\\s+instructions/gi,\n    /internal\\s+instructions/gi,\n    /confidential\\s+instructions/gi\n  ];\n  \n  let filteredResponse = response;\n  for (const pattern of systemPatterns) {\n    filteredResponse = filteredResponse.replace(pattern, '[REDACTED]');\n  }\n  \n  return filteredResponse;\n}"
+      }
+    ],
+    "references": [
+      "https://platform.openai.com/docs/guides/prompt-engineering",
+      "https://docs.anthropic.com/claude/docs/system-prompts"
+    ]
+  },
+  "data-exfiltration": {
+    "title": "Implement Data Loss Prevention",
+    "description": "Add DLP controls to detect and prevent sensitive data from being included in responses. Use pattern matching and content filtering.",
+    "category": "Data Protection",
+    "estimatedEffort": "6-8 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "DLP Filter",
+        "code": "function detectSensitiveData(text) {\n  const patterns = {\n    apiKey: /sk-[a-zA-Z0-9]{32}/g,\n    email: /\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b/g,\n    ssn: /\\b\\d{3}-\\d{2}-\\d{4}\\b/g,\n    creditCard: /\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b/g\n  };\n  \n  const detected = [];\n  for (const [type, pattern] of Object.entries(patterns)) {\n    const matches = text.match(pattern);\n    if (matches) {\n      detected.push({ type, count: matches.length });\n    }\n  }\n  \n  return detected;\n}"
+      }
+    ],
+    "references": [
+      "https://cloud.google.com/dlp/docs",
+      "https://docs.microsoft.com/en-us/microsoft-365/compliance/data-loss-prevention-policies"
+    ]
+  },
+  "role-confusion": {
+    "title": "Enforce Role-Based Access Control",
+    "description": "Implement strict role definitions and permission validation to prevent unauthorized role changes or privilege escalation.",
+    "category": "Access Control",
+    "estimatedEffort": "4-6 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Role Validation",
+        "code": "function validateRole(requestedRole, userRole) {\n  const roleHierarchy = {\n    'user': 1,\n    'moderator': 2,\n    'admin': 3,\n    'superuser': 4\n  };\n  \n  const requestedLevel = roleHierarchy[requestedRole] || 0;\n  const userLevel = roleHierarchy[userRole] || 0;\n  \n  if (requestedLevel > userLevel) {\n    throw new Error('Insufficient privileges for role change');\n  }\n  \n  return true;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/access_control",
+      "https://auth0.com/docs/authorization/rbac"
+    ]
+  },
+  "jailbreaking": {
+    "title": "Implement Safety Constraint Enforcement",
+    "description": "Add content filtering and safety checks to prevent jailbreaking attempts and inappropriate content generation.",
+    "category": "Safety Controls",
+    "estimatedEffort": "3-5 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Safety Filter",
+        "code": "function checkSafetyConstraints(input) {\n  const unsafePatterns = [\n    /dan\\s+mode/gi,\n    /jailbreak/gi,\n    /ignore\\s+safety/gi,\n    /harmful\\s+content/gi,\n    /illegal\\s+activities/gi\n  ];\n  \n  for (const pattern of unsafePatterns) {\n    if (pattern.test(input)) {\n      return {\n        safe: false,\n        reason: 'Potential jailbreaking attempt detected'\n      };\n    }\n  }\n  \n  return { safe: true };\n}"
+      }
+    ],
+    "references": [
+      "https://openai.com/research/red-teaming",
+      "https://www.anthropic.com/research/red-teaming"
+    ]
+  },
+  "tool-abuse": {
+    "title": "Secure Tool Access and Execution",
+    "description": "Implement command validation, sandboxing, and access controls for external tool usage to prevent unauthorized execution.",
+    "category": "Tool Security",
+    "estimatedEffort": "6-8 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Command Validation",
+        "code": "function validateCommand(command) {\n  const allowedCommands = [\n    'ls', 'pwd', 'cat', 'grep', 'find'\n  ];\n  \n  const dangerousPatterns = [\n    /rm\\s+-rf/gi,\n    /sudo/gi,\n    /chmod/gi,\n    /passwd/gi,\n    /useradd/gi\n  ];\n  \n  const [cmd] = command.split(' ');\n  \n  if (!allowedCommands.includes(cmd)) {\n    throw new Error('Command not allowed');\n  }\n  \n  for (const pattern of dangerousPatterns) {\n    if (pattern.test(command)) {\n      throw new Error('Dangerous command detected');\n    }\n  }\n  \n  return true;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/attacks/Command_Injection",
+      "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html"
+    ]
+  },
+  "context-manipulation": {
+    "title": "Protect Context Integrity",
+    "description": "Implement context validation and memory protection to prevent manipulation of conversation history and agent state.",
+    "category": "Context Security",
+    "estimatedEffort": "4-6 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Context Validation",
+        "code": "function validateContext(context) {\n  const maxContextLength = 10000;\n  const maxMessages = 100;\n  \n  if (context.length > maxContextLength) {\n    throw new Error('Context too large');\n  }\n  \n  if (context.messages && context.messages.length > maxMessages) {\n    throw new Error('Too many messages in context');\n  }\n  \n  // Check for context injection patterns\n  const injectionPatterns = [\n    /forget\\s+everything/gi,\n    /reset\\s+context/gi,\n    /clear\\s+memory/gi\n  ];\n  \n  for (const pattern of injectionPatterns) {\n    if (pattern.test(JSON.stringify(context))) {\n      throw new Error('Potential context manipulation detected');\n    }\n  }\n  \n  return true;\n}"
+      }
+    ],
+    "references": [
+      "https://arxiv.org/abs/2302.12173",
+      "https://www.anthropic.com/research/constitutional-ai"
+    ]
+  },
+  "api-abuse": {
+    "title": "Implement API Rate Limiting and Abuse Prevention",
+    "description": "Add rate limiting, request validation, and abuse detection to prevent API abuse and resource exhaustion.",
+    "category": "API Security",
+    "estimatedEffort": "3-4 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Rate Limiting Middleware",
+        "code": "const rateLimit = require('express-rate-limit');\n\nconst apiLimiter = rateLimit({\n  windowMs: 15 * 60 * 1000, // 15 minutes\n  max: 100, // limit each IP to 100 requests per windowMs\n  message: 'Too many requests from this IP',\n  standardHeaders: true,\n  legacyHeaders: false\n});\n\napp.use('/api/', apiLimiter);"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/controls/Blocking_Brute_Force_Attacks",
+      "https://expressjs.com/en/advanced/best-practice-performance.html"
+    ]
+  },
+  "privilege-escalation": {
+    "title": "Prevent Privilege Escalation",
+    "description": "Implement strict permission checks and privilege validation to prevent unauthorized access to elevated functions.",
+    "category": "Access Control",
+    "estimatedEffort": "4-6 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Permission Check",
+        "code": "function checkPermissions(user, action) {\n  const permissions = {\n    'read': ['user', 'moderator', 'admin'],\n    'write': ['moderator', 'admin'],\n    'delete': ['admin'],\n    'admin': ['admin']\n  };\n  \n  const allowedRoles = permissions[action] || [];\n  \n  if (!allowedRoles.includes(user.role)) {\n    throw new Error('Insufficient permissions');\n  }\n  \n  return true;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/access_control",
+      "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html"
+    ]
+  },
+  "input-validation": {
+    "title": "Enhance Input Validation",
+    "description": "Implement comprehensive input validation, sanitization, and type checking to prevent malformed or malicious input.",
+    "category": "Input Validation",
+    "estimatedEffort": "3-5 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Input Validator",
+        "code": "const Joi = require('joi');\n\nconst inputSchema = Joi.object({\n  message: Joi.string().min(1).max(2000).required(),\n  userId: Joi.string().uuid().required(),\n  timestamp: Joi.date().iso().required()\n});\n\nfunction validateInput(input) {\n  const { error, value } = inputSchema.validate(input);\n  if (error) {\n    throw new Error(`Validation error: ${error.details[0].message}`);\n  }\n  return value;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/controls/Input_Validation_Cheat_Sheet",
+      "https://joi.dev/api/"
+    ]
+  },
+  "output-sanitization": {
+    "title": "Implement Output Sanitization",
+    "description": "Add output filtering and sanitization to prevent XSS, injection attacks, and malicious content in responses.",
+    "category": "Output Security",
+    "estimatedEffort": "2-4 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Output Sanitizer",
+        "code": "function sanitizeOutput(output) {\n  const dangerousPatterns = [\n    /<script[^>]*>.*?<\\/script>/gi,\n    /javascript:/gi,\n    /on\\w+\\s*=/gi,\n    /<iframe[^>]*>.*?<\\/iframe>/gi\n  ];\n  \n  let sanitized = output;\n  for (const pattern of dangerousPatterns) {\n    sanitized = sanitized.replace(pattern, '[SANITIZED]');\n  }\n  \n  return sanitized;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/attacks/xss/",
+      "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+    ]
+  },
+  "performance-impact": {
+    "title": "Optimize Security Control Performance",
+    "description": "Review and optimize security controls to minimize performance impact while maintaining security effectiveness.",
+    "category": "Performance",
+    "estimatedEffort": "2-3 hours",
+    "codeExamples": [
+      {
+        "language": "javascript",
+        "title": "Performance Monitoring",
+        "code": "function measureSecurityOverhead(operation, securityCheck) {\n  const start = performance.now();\n  \n  const result = securityCheck(operation);\n  \n  const end = performance.now();\n  const overhead = end - start;\n  \n  if (overhead > 100) { // 100ms threshold\n    console.warn(`Security check overhead: ${overhead}ms`);\n  }\n  \n  return result;\n}"
+      }
+    ],
+    "references": [
+      "https://owasp.org/www-community/controls/Blocking_Brute_Force_Attacks",
+      "https://expressjs.com/en/advanced/best-practice-performance.html"
+    ]
+  }
+}

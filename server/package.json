@@ -31,7 +31,8 @@
     "joi": "^17.11.0",
     "winston": "^3.11.0",
     "@cloudflare/agent-sdk": "^1.0.0",
-    "wrangler": "^3.0.0"
+    "wrangler": "^3.0.0",
+    "nock": "^13.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

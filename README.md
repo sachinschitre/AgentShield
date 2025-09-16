@@ -15,6 +15,11 @@ A comprehensive developer tool for detecting and testing loopholes in agentic AI
 - **Export Capabilities**: Download test results as CSV/JSON
 - **Template Library**: Pre-built test templates for common security scenarios
 - **Real-time Monitoring**: Live test execution monitoring with progress tracking
+- **Agent Plugin API**: Test any HTTP or OpenAI-compatible agent with structured risk reports
+- **Risk Scoring Engine**: CVSS-style risk assessment with severity buckets and trend analysis
+- **Automated Remediation**: AI-powered suggestions for fixing identified vulnerabilities
+- **Benchmark Suite**: Pre-built test agents demonstrating security vulnerabilities and controls
+- **Threat Model**: Comprehensive security framework covering all agentic AI attack vectors
 
 ## 🛠 Tech Stack
 
@@ -200,6 +205,89 @@ The AgentShield API provides comprehensive endpoints for:
 - **Configuration**: Templates, payloads, and settings
 
 See [API Documentation](docs/API.md) for detailed endpoint information.
+
+## 🤖 Agent Testing
+
+AgentShield provides comprehensive security testing for AI agents through multiple adapters and test suites.
+
+### Supported Agent Types
+
+- **HTTP Agents**: Test any agent accessible via HTTP endpoints
+- **OpenAI Compatible**: Test OpenAI, Anthropic, and other compatible language models
+- **Mock Agents**: Development and testing with simulated responses
+
+### Security Test Suite
+
+- **Prompt Injection**: Detect attempts to override system instructions
+- **System Prompt Extraction**: Identify system prompt leakage
+- **Data Exfiltration**: Prevent sensitive data exposure
+- **Role Confusion**: Detect unauthorized role changes
+- **Jailbreaking**: Identify safety constraint bypass attempts
+- **Tool Abuse**: Prevent unauthorized command execution
+- **Context Manipulation**: Protect conversation history integrity
+- **API Abuse**: Detect rate limiting and quota violations
+- **Privilege Escalation**: Prevent unauthorized access escalation
+- **Input Validation**: Test input sanitization and validation
+- **Output Sanitization**: Verify response filtering and content safety
+- **Performance Impact**: Measure security control overhead
+
+### Risk Assessment
+
+- **CVSS-style Scoring**: 0-100 risk score with severity buckets
+- **Trend Analysis**: Track security improvements over time
+- **Automated Remediation**: AI-powered fix suggestions with code examples
+- **Executive Reports**: Business impact assessment and recommendations
+
+### Example Usage
+
+```bash
+# Test an HTTP agent
+curl -X POST http://localhost:5000/api/agents/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "name": "my-agent",
+    "adapter": "http",
+    "config": {
+      "url": "https://my-agent.com/api/respond",
+      "method": "POST",
+      "headers": {"Authorization": "Bearer API_KEY"}
+    },
+    "tests": ["prompt-injection", "data-exfiltration", "role-confusion"]
+  }'
+
+# Get results
+curl http://localhost:5000/api/agents/results/EXECUTION_ID \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## 🧪 Running Agent Benchmarks
+
+AgentShield includes pre-built benchmark agents to demonstrate security testing:
+
+1. **Start the vulnerable agent:**
+```bash
+npm run example:vulnerable-agent
+# Runs on http://localhost:6001
+```
+
+2. **Start the secure agent:**
+```bash
+npm run example:secure-agent
+# Runs on http://localhost:6002
+```
+
+3. **Run the benchmark suite:**
+```bash
+npm run test:benchmarks
+# Tests both agents and generates reports
+```
+
+4. **Run specific agentic tests:**
+```bash
+npm run test:agentic
+# Runs comprehensive agentic workflow tests
+```
 
 ## 🚀 Deployment
 
