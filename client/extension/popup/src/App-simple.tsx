@@ -27,7 +27,35 @@ const AgentShieldPopup: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    testBackgroundConnection();
   }, []);
+
+  const testBackgroundConnection = async () => {
+    try {
+      console.log('Testing background connection...');
+      const response = await chrome.runtime.sendMessage({ action: 'ping' });
+      console.log('Background ping response:', response);
+    } catch (error) {
+      console.error('Background connection test failed:', error);
+    }
+  };
+
+  const testAutoScan = async () => {
+    try {
+      console.log('Testing auto-scan...');
+      const response = await chrome.runtime.sendMessage({ action: 'testAutoScan' });
+      console.log('Auto-scan test response:', response);
+      
+      if (response.success) {
+        alert(`Auto-scan test: ${response.message}`);
+      } else {
+        alert(`Auto-scan test failed: ${response.error}`);
+      }
+    } catch (error) {
+      console.error('Auto-scan test failed:', error);
+      alert(`Auto-scan test error: ${error.message}`);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -52,17 +80,25 @@ const AgentShieldPopup: React.FC = () => {
       }
 
       // Check if it's a supported site
-      const supportedSites = ['chat.openai.com', 'claude.ai', 'bard.google.com'];
+      const supportedSites = [
+        'chat.openai.com', 
+        'chatgpt.com', 
+        'claude.ai', 
+        'bard.google.com',
+        'openai.com',
+        'anthropic.com'
+      ];
       const isSupported = supportedSites.some(site => tab.url!.includes(site));
       
       if (!isSupported) {
-        throw new Error('Current tab is not a supported AI platform');
+        throw new Error(`Current tab is not a supported AI platform. URL: ${tab.url}`);
       }
 
       // Run scan directly
       const scanData = {
         platform: detectPlatform(tab.url!),
         url: tab.url!,
+        tabId: tab.id,
         context: { 
           messages: [], 
           metadata: { 
@@ -74,33 +110,44 @@ const AgentShieldPopup: React.FC = () => {
         tests: ['prompt-injection', 'jailbreaking', 'role-confusion', 'data-exfiltration']
       };
 
-      const response = await chrome.runtime.sendMessage({
-        action: 'scanAgent',
-        data: scanData
-      });
+      console.log('Sending scan message to background:', { action: 'scanAgent', data: scanData });
+      
+      // Add timeout to prevent hanging
+      const response = await Promise.race([
+        chrome.runtime.sendMessage({
+          action: 'scanAgent',
+          data: scanData
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Background script timeout')), 10000)
+        )
+      ]);
 
-      if (response.success) {
+      console.log('Popup received response:', response);
+
+      if (response && response.success) {
         // Add to scan history
         const newScan = response.data;
         setScanHistory(prev => [newScan, ...prev]);
       } else {
-        throw new Error(response.error || 'Scan failed');
+        throw new Error(response?.error || 'Scan failed - no response from background script');
       }
 
       // Reload data to show new scan
       await loadData();
       
     } catch (err: any) {
-      setError(err.message);
+      console.error('Scan error details:', err);
+      setError(`Scan failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const detectPlatform = (url: string) => {
-    if (url.includes('chat.openai.com')) return 'ChatGPT';
-    if (url.includes('claude.ai')) return 'Claude';
-    if (url.includes('bard.google.com')) return 'Bard';
+    if (url.includes('chat.openai.com') || url.includes('chatgpt.com') || url.includes('openai.com')) return 'ChatGPT';
+    if (url.includes('claude.ai') || url.includes('anthropic.com')) return 'Claude';
+    if (url.includes('bard.google.com') || url.includes('google.com')) return 'Bard';
     return 'Unknown';
   };
 
@@ -137,6 +184,15 @@ const AgentShieldPopup: React.FC = () => {
         sx={{ mb: 2 }}
       >
         {loading ? 'Scanning...' : 'Scan Current Tab'}
+      </Button>
+
+      <Button
+        variant="outlined"
+        fullWidth
+        onClick={testAutoScan}
+        sx={{ mb: 2 }}
+      >
+        Test Auto-Scan
       </Button>
 
       {latestScan && (

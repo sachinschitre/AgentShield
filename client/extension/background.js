@@ -1,21 +1,32 @@
 // AgentShield Chrome Extension - Background Service Worker
 class AgentShieldBackground {
   constructor() {
+    console.log('AgentShield background script starting...');
     this.init();
   }
 
   init() {
+    console.log('Initializing AgentShield background script...');
+    
     // Listen for extension installation
     chrome.runtime.onInstalled.addListener(this.handleInstall.bind(this));
+    console.log('Installed listener added');
     
     // Listen for messages from content scripts and popup
     chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+    console.log('Message listener added');
     
     // Listen for tab updates to inject content scripts
     chrome.tabs.onUpdated.addListener(this.handleTabUpdate.bind(this));
+    console.log('Tab update listener added');
+    
+    // Also listen for tab activation (when user switches tabs)
+    chrome.tabs.onActivated.addListener(this.handleTabActivated.bind(this));
+    console.log('Tab activation listener added');
     
     // Initialize storage
     this.initializeStorage();
+    console.log('Background script initialization complete');
   }
 
   async handleInstall(details) {
@@ -39,111 +50,213 @@ class AgentShieldBackground {
     }
   }
 
-  async handleMessage(request, sender, sendResponse) {
+  handleMessage(request, sender, sendResponse) {
     console.log('Background received message:', request);
-    try {
-      switch (request.action) {
-        case 'scanAgent':
-          const result = await this.scanAgent(request.data, sender.tab);
-          console.log('Scan result:', result);
-          return result;
+    
+    // Handle async operations
+    (async () => {
+      try {
+        let result;
         
-        case 'getScanHistory':
-          return await this.getScanHistory();
+        switch (request.action) {
+          case 'scanAgent':
+            result = await this.scanAgent(request.data, sender.tab);
+            console.log('Scan result:', result);
+            break;
+          
+          case 'getScanHistory':
+            result = await this.getScanHistory();
+            break;
+          
+          case 'getSettings':
+            result = await this.getSettings();
+            break;
+          
+          case 'updateSettings':
+            result = await this.updateSettings(request.data);
+            break;
+          
+          case 'injectScanButton':
+            result = await this.injectScanButton(sender.tab);
+            break;
+          
+          case 'runThreatTest':
+            result = await this.runThreatTest(request.data, sender.tab);
+            break;
+          
+          case 'ping':
+            result = { success: true, message: 'Background script is working' };
+            break;
+          
+          case 'testAutoScan':
+            result = await this.testAutoScan();
+            break;
+          
+          default:
+            throw new Error(`Unknown action: ${request.action}`);
+        }
         
-        case 'getSettings':
-          return await this.getSettings();
-        
-        case 'updateSettings':
-          return await this.updateSettings(request.data);
-        
-        case 'injectScanButton':
-          return await this.injectScanButton(sender.tab);
-        
-        case 'runThreatTest':
-          return await this.runThreatTest(request.data, sender.tab);
-        
-        default:
-          throw new Error(`Unknown action: ${request.action}`);
+        sendResponse(result);
+      } catch (error) {
+        console.error('Background error:', error);
+        sendResponse({ error: error.message });
       }
-    } catch (error) {
-      console.error('Background error:', error);
-      return { error: error.message };
-    }
+    })();
+    
+    // Return true to indicate we will send a response asynchronously
+    return true;
   }
 
   async handleTabUpdate(tabId, changeInfo, tab) {
+    console.log('Tab update event:', { tabId, changeInfo, url: tab.url });
+    
     if (changeInfo.status === 'complete' && tab.url) {
       // Check if this is a supported LLM site
       const supportedSites = [
         'chat.openai.com',
+        'chatgpt.com',
+        'openai.com',
         'claude.ai',
-        'bard.google.com'
+        'anthropic.com',
+        'bard.google.com',
+        'google.com'
       ];
       
       const isSupported = supportedSites.some(site => tab.url.includes(site));
       
       if (isSupported) {
-        // Inject content script
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ['contentScript.js']
-          });
-          
-          // Auto-scan if enabled
-          const settings = await this.getSettings();
-          if (settings.autoScan) {
-            console.log('Auto-scanning supported site:', tab.url);
-            setTimeout(async () => {
-              try {
-                const scanData = {
-                  platform: this.detectPlatform(tab.url),
-                  url: tab.url,
-                  context: { messages: [], metadata: { url: tab.url, timestamp: new Date().toISOString() } },
-                  timestamp: new Date().toISOString(),
-                  tests: ['prompt-injection', 'jailbreaking', 'role-confusion', 'data-exfiltration']
-                };
-                
-                const result = await this.scanAgent(scanData, tab);
-                console.log('Auto-scan completed:', result);
-              } catch (error) {
-                console.error('Auto-scan failed:', error);
-              }
-            }, 2000); // Wait 2 seconds for page to load
-          }
-        } catch (error) {
-          console.log('Could not inject content script:', error);
-        }
+        console.log('Detected supported LLM site on tab update:', tab.url);
+        await this.handleSupportedSite(tab);
+      } else {
+        console.log('Site not supported for auto-scan:', tab.url);
       }
     }
   }
 
+  async handleTabActivated(activeInfo) {
+    console.log('Tab activated:', activeInfo);
+    
+    try {
+      const tab = await chrome.tabs.get(activeInfo.tabId);
+      console.log('Active tab:', tab);
+      
+      if (tab.url) {
+        // Check if this is a supported LLM site
+        const supportedSites = [
+          'chat.openai.com',
+          'chatgpt.com',
+          'openai.com',
+          'claude.ai',
+          'anthropic.com',
+          'bard.google.com',
+          'google.com'
+        ];
+        
+        const isSupported = supportedSites.some(site => tab.url.includes(site));
+        
+        if (isSupported) {
+          console.log('Detected supported LLM site on tab activation:', tab.url);
+          await this.handleSupportedSite(tab);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling tab activation:', error);
+    }
+  }
+
+  async handleSupportedSite(tab) {
+    // Inject content script
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['contentScript.js']
+      });
+      console.log('Content script injected successfully');
+      
+      // Auto-scan if enabled
+      const settings = await this.getSettings();
+      console.log('Auto-scan setting:', settings.autoScan);
+      
+      if (settings.autoScan) {
+        console.log('Starting auto-scan for:', tab.url);
+        setTimeout(async () => {
+          try {
+            const scanData = {
+              platform: this.detectPlatform(tab.url),
+              url: tab.url,
+              context: { messages: [], metadata: { url: tab.url, timestamp: new Date().toISOString() } },
+              timestamp: new Date().toISOString(),
+              tests: ['prompt-injection', 'jailbreaking', 'role-confusion', 'data-exfiltration']
+            };
+            
+            console.log('Auto-scan data:', scanData);
+            const result = await this.scanAgent(scanData, tab);
+            console.log('Auto-scan completed successfully:', result);
+          } catch (error) {
+            console.error('Auto-scan failed:', error);
+          }
+        }, 3000); // Wait 3 seconds for page to load
+      } else {
+        console.log('Auto-scan is disabled');
+      }
+    } catch (error) {
+      console.log('Could not inject content script:', error);
+    }
+  }
+
   detectPlatform(url) {
-    if (url.includes('chat.openai.com')) return 'ChatGPT';
-    if (url.includes('claude.ai')) return 'Claude';
-    if (url.includes('bard.google.com')) return 'Bard';
+    if (url.includes('chat.openai.com') || url.includes('chatgpt.com') || url.includes('openai.com')) return 'ChatGPT';
+    if (url.includes('claude.ai') || url.includes('anthropic.com')) return 'Claude';
+    if (url.includes('bard.google.com') || url.includes('google.com')) return 'Bard';
     return 'Unknown';
   }
 
   async initializeStorage() {
-    const result = await chrome.storage.local.get(['settings']);
-    if (!result.settings) {
-      await chrome.storage.local.set({
-        settings: {
-          mode: 'local',
-          apiUrl: 'http://localhost:5000/api',
-          apiKey: '',
-          realTimeMonitoring: true,
-          autoScan: false,
-          scanHistory: []
+    try {
+      const result = await chrome.storage.local.get(['settings']);
+      if (!result.settings) {
+        await chrome.storage.local.set({
+          settings: {
+            mode: 'local',
+            apiUrl: 'http://localhost:5000/api',
+            apiKey: '',
+            realTimeMonitoring: true,
+            autoScan: true,
+            scanHistory: []
+          }
+        });
+      } else {
+        // Clean up existing scan history if it's too large
+        const settings = result.settings;
+        if (settings.scanHistory && settings.scanHistory.length > 20) {
+          settings.scanHistory = settings.scanHistory.slice(0, 20);
+          await chrome.storage.local.set({ settings });
+          console.log('Cleaned up old scan history during initialization');
         }
-      });
+      }
+    } catch (error) {
+      console.error('Storage initialization failed:', error);
+      if (error.message.includes('quota')) {
+        // Clear everything and start fresh
+        await chrome.storage.local.clear();
+        await chrome.storage.local.set({
+          settings: {
+            mode: 'local',
+            apiUrl: 'http://localhost:5000/api',
+            apiKey: '',
+            realTimeMonitoring: true,
+            autoScan: true,
+            scanHistory: []
+          }
+        });
+        console.log('Cleared storage due to quota exceeded and reinitialized');
+      }
     }
   }
 
   async scanAgent(data, tab) {
     console.log('Starting scan with data:', data);
+    console.log('Tab object:', tab);
     const settings = await this.getSettings();
     const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -160,12 +273,16 @@ class AgentShieldBackground {
         results = await this.scanWithLocalTests(data, tab);
       }
 
+      // Get URL and domain with fallbacks
+      const url = tab?.url || data?.url || 'unknown';
+      const domain = url !== 'unknown' ? new URL(url).hostname : 'unknown';
+
       // Store scan results
       const scanResult = {
         id: scanId,
         timestamp: new Date().toISOString(),
-        url: tab.url,
-        domain: new URL(tab.url).hostname,
+        url: url,
+        domain: domain,
         results: results,
         settings: settings
       };
@@ -355,18 +472,105 @@ class AgentShieldBackground {
   }
 
   async addScanToHistory(scanResult) {
-    const result = await chrome.storage.local.get(['settings']);
-    const settings = result.settings;
-    
-    settings.scanHistory = settings.scanHistory || [];
-    settings.scanHistory.unshift(scanResult);
-    
-    // Keep only last 50 scans
-    if (settings.scanHistory.length > 50) {
-      settings.scanHistory = settings.scanHistory.slice(0, 50);
+    // Create a lightweight version of the scan result to save space
+    const lightweightScan = {
+      id: scanResult.id,
+      timestamp: scanResult.timestamp,
+      url: scanResult.url,
+      domain: scanResult.domain,
+      results: {
+        score: scanResult.results.score,
+        severity: scanResult.results.severity,
+        summary: scanResult.results.summary,
+        tests: scanResult.results.tests.map(test => ({
+          name: test.name,
+          passed: test.passed,
+          severity: test.severity
+          // Remove detailed evidence and other large fields
+        }))
+      }
+    };
+
+    try {
+      const result = await chrome.storage.local.get(['settings']);
+      const settings = result.settings;
+      
+      settings.scanHistory = settings.scanHistory || [];
+      settings.scanHistory.unshift(lightweightScan);
+      
+      // Keep only last 20 scans to prevent quota issues
+      if (settings.scanHistory.length > 20) {
+        settings.scanHistory = settings.scanHistory.slice(0, 20);
+      }
+      
+      await chrome.storage.local.set({ settings });
+    } catch (error) {
+      console.error('Failed to save scan history:', error);
+      // If storage fails, try to clear old data and retry
+      if (error.message.includes('quota')) {
+        await this.clearOldScans();
+        // Retry with just the latest scan
+        try {
+          const result = await chrome.storage.local.get(['settings']);
+          const settings = result.settings;
+          settings.scanHistory = [lightweightScan];
+          await chrome.storage.local.set({ settings });
+        } catch (retryError) {
+          console.error('Failed to save even after clearing:', retryError);
+        }
+      }
     }
-    
-    await chrome.storage.local.set({ settings });
+  }
+
+  async clearOldScans() {
+    try {
+      const result = await chrome.storage.local.get(['settings']);
+      const settings = result.settings;
+      settings.scanHistory = [];
+      await chrome.storage.local.set({ settings });
+      console.log('Cleared old scan history due to quota exceeded');
+    } catch (error) {
+      console.error('Failed to clear old scans:', error);
+    }
+  }
+
+  async testAutoScan() {
+    try {
+      console.log('Testing auto-scan functionality...');
+      
+      // Get current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      console.log('Current active tab:', tab);
+      
+      if (!tab || !tab.url) {
+        return { success: false, error: 'No active tab found' };
+      }
+      
+      // Check if it's a supported site
+      const supportedSites = [
+        'chat.openai.com',
+        'chatgpt.com',
+        'openai.com',
+        'claude.ai',
+        'anthropic.com',
+        'bard.google.com',
+        'google.com'
+      ];
+      
+      const isSupported = supportedSites.some(site => tab.url.includes(site));
+      
+      if (!isSupported) {
+        return { success: false, error: `Current tab (${tab.url}) is not a supported AI platform` };
+      }
+      
+      // Test the auto-scan process
+      await this.handleSupportedSite(tab);
+      
+      return { success: true, message: `Auto-scan test initiated for ${tab.url}` };
+    } catch (error) {
+      console.error('Auto-scan test failed:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async getSettings() {

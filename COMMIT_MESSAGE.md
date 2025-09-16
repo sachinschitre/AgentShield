@@ -1,4 +1,4 @@
-feat: Add comprehensive AgentShield Chrome Extension (Manifest V3)
+Add comprehensive AgentShield Chrome Extension (Manifest V3)
 
 ## Overview
 Implements a full-featured Chrome extension for real-time AI agent security testing directly in the browser. The extension provides automated vulnerability scanning, risk assessment, and remediation suggestions for LLM applications.
