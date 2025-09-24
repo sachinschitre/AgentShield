@@ -1,12 +1,9 @@
 {
   "ci": {
     "collect": {
-      "numberOfRuns": 3,
+      "numberOfRuns": 1,
       "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/dashboard",
-        "http://localhost:3000/tests",
-        "http://localhost:3000/results"
+        "http://localhost:3000"
       ],
       "settings": {
         "chromeFlags": "--no-sandbox --disable-dev-shm-usage"

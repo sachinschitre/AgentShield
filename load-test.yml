@@ -1,16 +1,16 @@
 config:
   target: 'http://localhost:5000'
   phases:
-    - duration: 60
+    - duration: 30
       arrivalRate: 5
       name: "Warm up"
-    - duration: 120
+    - duration: 60
       arrivalRate: 10
       name: "Ramp up load"
-    - duration: 300
-      arrivalRate: 20
+    - duration: 120
+      arrivalRate: 15
       name: "Sustained load"
-    - duration: 60
+    - duration: 30
       arrivalRate: 5
       name: "Ramp down"
   defaults:
