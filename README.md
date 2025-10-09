@@ -2,6 +2,7 @@
 
 A comprehensive developer tool for detecting and testing loopholes in agentic AI applications. AgentShield provides a web-based UI for creating, managing, and executing security tests against AI systems.
 
+NOTE-Cloning and reuse are allowed only by approved contributors under CLA.
 ## 🚀 Features
 
 - **Dynamic Test Case Creation**: Define and customize tests for user input validation, API endpoint fuzzing, and agentic workflow analysis
